@@ -1,84 +1,69 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+// pages/dashboard.js
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { supabase } from "../lib/supabaseClient";
+import Link from "next/link";
 
 export default function Dashboard() {
-  const [usuario, setUsuario] = useState(null);
-  const [resumo, setResumo] = useState({ total: 0, hoje: 0 });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const email = localStorage.getItem('email');
-    if (!email) {
-      router.push('/');
-    } else {
-      setUsuario(email);
-      // Simula resumo de uso
-      setResumo({ total: 27, hoje: 2 });
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user) {
+        router.push("/login");
+      } else {
+        setUser(session.user);
+        setLoading(false);
+      }
+    });
   }, []);
 
-  const sair = () => {
-    localStorage.removeItem('email');
-    router.push('/');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
   };
 
+  if (loading) return <div className="p-4 text-center">Carregando...</div>;
+
   return (
-    <div style={{ padding: '40px', fontFamily: 'Arial' }}>
-      <h1>🤖 Painel do Usuário - AutoReel AI</h1>
+    <div className="min-h-screen bg-white text-gray-800 p-6">
+      <header className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">AutoReel AI</h1>
+        <button
+          onClick={handleLogout}
+          className="text-sm bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+        >
+          Sair
+        </button>
+      </header>
 
-      {usuario && (
-        <>
-          <p>💬 Logado como: <strong>{usuario}</strong></p>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-sm">
+          {user?.email?.charAt(0).toUpperCase() || "U"}
+        </div>
+        <p className="text-lg">Olá, <span className="font-semibold">{user.email}</span></p>
+      </div>
 
-          <div style={{
-            display: 'flex',
-            gap: '20px',
-            marginTop: '30px',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{ padding: '20px', background: '#f0f0f0', borderRadius: '12px' }}>
-              <h3>📈 Total de vídeos: {resumo.total}</h3>
-              <p>Gerados desde sua entrada</p>
-            </div>
-
-            <div style={{ padding: '20px', background: '#e0ffe0', borderRadius: '12px' }}>
-              <h3>📝 Hoje: {resumo.hoje}</h3>
-              <p>Novos roteiros gerados hoje</p>
-            </div>
-
-            <div style={{ padding: '20px', background: '#fff8dc', borderRadius: '12px' }}>
-              <h3>⭐ Recomendação:</h3>
-              <p>"Explique um conceito em 30 segundos com um gancho emocional"</p>
-              <button onClick={() => router.push('/gerar')} style={{ marginTop: '10px' }}>
-                Usar agora
-              </button>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <Link href="/gerar">
+          <div className="p-4 bg-blue-500 text-white rounded shadow text-center cursor-pointer hover:bg-blue-600 transition">
+            🎬 Gerar Novo Vídeo
           </div>
+        </Link>
 
-          <div style={{ marginTop: '40px' }}>
-            <button
-              onClick={() => router.push('/gerar')}
-              style={{ marginRight: '20px', padding: '10px 20px', fontSize: '16px' }}>
-              🎥 Gerar Novo Vídeo
-            </button>
-            <button
-              onClick={() => router.push('/historico')}
-              style={{ marginRight: '20px', padding: '10px 20px', fontSize: '16px' }}>
-              📋 Ver Histórico
-            </button>
-            <button
-              onClick={() => alert('Planos Premium em breve!')}
-              style={{ marginRight: '20px', padding: '10px 20px', fontSize: '16px', background: 'gold', color: 'black' }}>
-              🥇 Upgrade para Premium
-            </button>
-            <button
-              onClick={sair}
-              style={{ padding: '10px 20px', fontSize: '16px', background: '#f44', color: 'white' }}>
-              ❌ Sair
-            </button>
+        <Link href="/historico">
+          <div className="p-4 bg-gray-700 text-white rounded shadow text-center cursor-pointer hover:bg-gray-800 transition">
+            📜 Ver Histórico
           </div>
-        </>
-      )}
+        </Link>
+
+        <div className="p-4 border rounded shadow text-center">
+          <p className="text-sm text-gray-500">Total de vídeos:</p>
+          <p className="text-2xl font-semibold">(conectar ao Supabase)</p>
+        </div>
+      </div>
     </div>
   );
 }

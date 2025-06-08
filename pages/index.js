@@ -1,3 +1,10 @@
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+
 export default function Home() {
-  return <div className="p-10 text-center">AutoReel AI está online</div>;
+  const router = useRouter();
+  useEffect(() => {
+    router.push('/login');
+  }, []);
+  return <p>Redirecionando...</p>;
 }
