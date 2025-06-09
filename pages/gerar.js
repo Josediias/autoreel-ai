@@ -1,51 +1,70 @@
-// pages/api/gerar.js
+// ✅ Arquivo corrigido: pages/gerar.js
+// Corrige uso incorreto do fetch e garante compatibilidade com o GitHub e Vercel
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método não permitido' });
-  }
+import { useState } from 'react';
 
-  const { tema } = req.body;
+export default function GerarPage() {
+  const [tema, setTema] = useState('');
+  const [roteiro, setRoteiro] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState(null);
 
-  if (!tema || tema.trim() === '') {
-    return res.status(400).json({ error: 'Tema é obrigatório.' });
-  }
+  const handleGerar = async () => {
+    setCarregando(true);
+    setErro(null);
+    setRoteiro('');
 
-  try {
-    const resposta = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'Você é um roteirista de vídeos virais para Reels e TikTok. Crie roteiros curtos, impactantes e com linguagem moderna.',
-          },
-          {
-            role: 'user',
-            content: `Crie um roteiro com o tema: ${tema}. Estruture com abertura forte, gancho emocional e final chamativo.`,
-          },
-        ],
-        max_tokens: 800,
-        temperature: 0.8,
-      }),
-    });
+    try {
+      const res = await fetch('/api/gerar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tema }),
+      });
 
-    const data = await resposta.json();
+      if (!res.ok) {
+        throw new Error(`Erro na requisição: ${res.status}`);
+      }
 
-    if (!data.choices || !data.choices[0]) {
-      return res.status(500).json({ error: 'Erro ao gerar roteiro com IA' });
+      const data = await res.json();
+      setRoteiro(data.roteiro || 'Nenhum roteiro recebido.');
+    } catch (err) {
+      console.error('Erro ao gerar:', err);
+      setErro('Falha ao gerar o roteiro.');
+    } finally {
+      setCarregando(false);
     }
+  };
 
-    const roteiro = data.choices[0].message.content;
+  return (
+    <div className="min-h-screen bg-gray-900 text-white p-8">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-4">Gerador de Roteiro com IA</h1>
 
-    return res.status(200).json({ roteiro });
-  } catch (error) {
-    console.error('Erro ao gerar roteiro:', error);
-    return res.status(500).json({ error: 'Erro interno ao gerar roteiro' });
-  }
+        <input
+          type="text"
+          placeholder="Digite o tema do vídeo"
+          className="w-full p-3 rounded bg-gray-800 border border-gray-600 mb-4"
+          value={tema}
+          onChange={(e) => setTema(e.target.value)}
+        />
+
+        <button
+          onClick={handleGerar}
+          disabled={carregando || !tema.trim()}
+          className="bg-purple-600 hover:bg-purple-500 px-6 py-2 rounded font-medium disabled:opacity-50"
+        >
+          {carregando ? 'Gerando...' : 'Gerar Roteiro'}
+        </button>
+
+        {erro && <p className="mt-4 text-red-400">{erro}</p>}
+
+        {roteiro && (
+          <div className="mt-6 bg-gray-800 p-4 rounded border border-gray-700">
+            <h2 className="text-xl font-semibold mb-2">Roteiro Gerado:</h2>
+            <pre className="whitespace-pre-wrap text-gray-300">{roteiro}</pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
