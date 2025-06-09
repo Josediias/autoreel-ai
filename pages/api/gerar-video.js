@@ -1,44 +1,49 @@
-// pages/api/gerar-video.js
+import axios from 'axios'
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Método não permitido" });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' })
 
-  const { roteiro } = req.body;
-  const GEMINI_API_KEY = process.env.PUBLIC_GEMINI_API_KEY;
+  const { roteiro } = req.body
 
-  if (!GEMINI_API_KEY) {
-    return res.status(500).json({ error: "Chave da API Gemini ausente." });
-  }
-
-  if (!roteiro || roteiro.length < 10) {
-    return res.status(400).json({ error: "Roteiro inválido ou vazio." });
-  }
+  if (!roteiro) return res.status(400).json({ error: 'Roteiro ausente no corpo da requisição' })
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: `Crie um vídeo curto com base neste roteiro:\n\n${roteiro}` }] }]
-      })
-    });
+    // Exemplo de integração com Gemini API (ajuste conforme seu endpoint real)
+    const response = await axios.post(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+      {
+        contents: [
+          {
+            parts: [{ text: `Crie um vídeo curto a partir do seguinte roteiro: ${roteiro}` }],
+          },
+        ],
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
+        },
+      }
+    )
 
-    const data = await response.json();
-
-    const output = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!output) {
-      throw new Error("Gemini não retornou conteúdo.");
+    // Substitua isso com lógica real de geração de vídeo (URL, ID, etc.)
+    const videoSimulado = {
+      url: 'https://example.com/video-simulado.mp4',
+      status: 'success',
+      mensagem: 'Vídeo gerado com sucesso (simulado)',
     }
 
-    // Aqui você pode conectar com outra API que renderize o vídeo real com base no `output`
-    // Por enquanto, simulamos uma URL fictícia
-    return res.status(200).json({ video_url: "https://fakevideo.com/generated-by-gemini.mp4", roteiro_expandido: output });
+    return res.status(200).json({ video: videoSimulado })
+  } catch (err) {
+    console.error('Erro ao gerar vídeo com Gemini:', err.message)
 
-  } catch (error) {
-    console.error("Erro com Gemini:", error);
-    return res.status(500).json({ error: "Erro ao gerar com Gemini", fallback: "https://fakevideo.com/fallback.mp4" });
+    // Fallback simulando retorno
+    return res.status(200).json({
+      video: {
+        url: 'https://www.w3schools.com/html/mov_bbb.mp4', // vídeo de exemplo
+        status: 'placeholder',
+        mensagem: 'Falha na geração com Gemini. Retornando vídeo simulado.',
+      },
+    })
   }
 }

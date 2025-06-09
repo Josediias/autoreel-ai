@@ -1,39 +1,51 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+// pages/api/gerar.js
 
-export default function Gerar() {
-  const [tema, setTema] = useState('');
-  const [roteiro, setRoteiro] = useState('');
-  const router = useRouter();
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método não permitido' });
+  }
 
-  useEffect(() => {
-    if (router.query.tema) setTema(router.query.tema);
-  }, [router.query.tema]);
+  const { tema } = req.body;
 
-  const gerarRoteiro = async () => {
-    const res = await fetch('/api/gerar', {
+  if (!tema || tema.trim() === '') {
+    return res.status(400).json({ error: 'Tema é obrigatório.' });
+  }
+
+  try {
+    const resposta = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tema }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'Você é um roteirista de vídeos virais para Reels e TikTok. Crie roteiros curtos, impactantes e com linguagem moderna.',
+          },
+          {
+            role: 'user',
+            content: `Crie um roteiro com o tema: ${tema}. Estruture com abertura forte, gancho emocional e final chamativo.`,
+          },
+        ],
+        max_tokens: 800,
+        temperature: 0.8,
+      }),
     });
-    const json = await res.json();
-    setRoteiro(json.roteiro);
-  };
 
-  return (
-    <div className="p-6">
-      <h1 className="text-xl font-bold mb-4">🎬 Gerador de Roteiro</h1>
-      <input
-        className="border p-2 w-full mb-4"
-        type="text"
-        placeholder="Digite um tema"
-        value={tema}
-        onChange={(e) => setTema(e.target.value)}
-      />
-      <button onClick={gerarRoteiro} className="bg-blue-600 text-white px-4 py-2 rounded">
-        Gerar
-      </button>
-      {roteiro && <pre className="mt-4 p-4 bg-gray-100 rounded">{roteiro}</pre>}
-    </div>
-  );
+    const data = await resposta.json();
+
+    if (!data.choices || !data.choices[0]) {
+      return res.status(500).json({ error: 'Erro ao gerar roteiro com IA' });
+    }
+
+    const roteiro = data.choices[0].message.content;
+
+    return res.status(200).json({ roteiro });
+  } catch (error) {
+    console.error('Erro ao gerar roteiro:', error);
+    return res.status(500).json({ error: 'Erro interno ao gerar roteiro' });
+  }
 }
