@@ -1,49 +1,46 @@
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Método não permitido' });
+    return res.status(405).json({ erro: 'Método não permitido' });
   }
 
-  try {
-    const { tema } = req.body;
+  const { tema } = req.body;
 
-    if (!tema || tema.length < 3) {
-      return res.status(400).json({ message: 'Tema inválido' });
+  if (!tema) {
+    return res.status(400).json({ erro: 'Tema é obrigatório' });
+  }
+
+  // Gerar o roteiro (versão fake, usada durante testes)
+  const roteiroGerado = `Roteiro gerado automaticamente para o tema: ${tema}. Aqui você verá dicas, frases impactantes e chamadas para ação com base em IA.`;
+
+  try {
+    // Conectar ao Supabase com sessão
+    const supabase = createServerComponentClient({ cookies });
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return res.status(401).json({ erro: 'Não autenticado' });
     }
 
-    const prompt = `
-Crie um roteiro cativante e viral para um vídeo curto com o tema: "${tema}".
-Siga este formato:
+    // Salvar no Supabase (opcional, para histórico real)
+    await supabase.from('roteiros').insert([
+      {
+        user_id: session.user.id,
+        tema: tema,
+        roteiro: roteiroGerado,
+        created_at: new Date().toISOString()
+      }
+    ]);
 
-1. Hook de impacto (2 segundos)
-2. Curiosidade ou problema
-3. Reviravolta ou dica prática
-4. Final com uma chamada emocional para ação
-
-Seja objetivo, emocional e poderoso. Formate como um roteiro.
-`;
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.8,
-        max_tokens: 500,
-      }),
+    // Retorno manual para testes
+    return res.status(200).json({
+      roteiro: roteiroGerado
     });
 
-    const data = await response.json();
-    console.log("🧠 RESPOSTA GPT:", JSON.stringify(data, null, 2));
-
-    const roteiro = data.choices?.[0]?.message?.content || "Erro ao gerar roteiro.";
-    return res.status(200).json({ roteiro });
-
-  } catch (error) {
-    console.error("[ERRO GPT-3.5]", error);
-    return res.status(500).json({ roteiro: 'Erro ao gerar roteiro.' });
+  } catch (erro) {
+    console.error('Erro ao salvar roteiro:', erro);
+    return res.status(500).json({ erro: 'Erro interno ao gerar roteiro' });
   }
 }

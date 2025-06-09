@@ -1,18 +1,37 @@
-// ✅ Arquivo corrigido: pages/gerar.js
-// Corrige uso incorreto do fetch e garante compatibilidade com o GitHub e Vercel
-
 import { useState } from 'react';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
-export default function GerarPage() {
+export async function getServerSideProps(ctx) {
+  const supabase = createServerComponentClient({ cookies: () => ctx.req.headers.cookie });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {
+      user: session.user,
+    },
+  };
+}
+
+export default function Gerar({ user }) {
   const [tema, setTema] = useState('');
   const [roteiro, setRoteiro] = useState('');
   const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState(null);
 
-  const handleGerar = async () => {
+  const gerarRoteiro = async () => {
+    if (tema.length < 3) return alert('Tema muito curto.');
     setCarregando(true);
-    setErro(null);
-    setRoteiro('');
 
     try {
       const res = await fetch('/api/gerar', {
@@ -21,50 +40,40 @@ export default function GerarPage() {
         body: JSON.stringify({ tema }),
       });
 
-      if (!res.ok) {
-        throw new Error(`Erro na requisição: ${res.status}`);
-      }
-
       const data = await res.json();
-      setRoteiro(data.roteiro || 'Nenhum roteiro recebido.');
+      setRoteiro(data.roteiro || 'Falha ao gerar roteiro');
     } catch (err) {
-      console.error('Erro ao gerar:', err);
-      setErro('Falha ao gerar o roteiro.');
-    } finally {
-      setCarregando(false);
+      console.error('Erro:', err);
+      setRoteiro('Erro ao gerar roteiro');
     }
+
+    setCarregando(false);
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-4">Gerador de Roteiro com IA</h1>
+    <div className="p-6 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">🎬 Gerador de Roteiros</h1>
+      <input
+        type="text"
+        value={tema}
+        onChange={(e) => setTema(e.target.value)}
+        placeholder="Digite um tema..."
+        className="w-full p-2 border rounded mb-4"
+      />
+      <button
+        onClick={gerarRoteiro}
+        disabled={carregando}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+      >
+        {carregando ? 'Gerando...' : 'Gerar Roteiro'}
+      </button>
 
-        <input
-          type="text"
-          placeholder="Digite o tema do vídeo"
-          className="w-full p-3 rounded bg-gray-800 border border-gray-600 mb-4"
-          value={tema}
-          onChange={(e) => setTema(e.target.value)}
-        />
-
-        <button
-          onClick={handleGerar}
-          disabled={carregando || !tema.trim()}
-          className="bg-purple-600 hover:bg-purple-500 px-6 py-2 rounded font-medium disabled:opacity-50"
-        >
-          {carregando ? 'Gerando...' : 'Gerar Roteiro'}
-        </button>
-
-        {erro && <p className="mt-4 text-red-400">{erro}</p>}
-
-        {roteiro && (
-          <div className="mt-6 bg-gray-800 p-4 rounded border border-gray-700">
-            <h2 className="text-xl font-semibold mb-2">Roteiro Gerado:</h2>
-            <pre className="whitespace-pre-wrap text-gray-300">{roteiro}</pre>
-          </div>
-        )}
-      </div>
+      {roteiro && (
+        <div className="mt-6 bg-gray-100 p-4 rounded whitespace-pre-wrap">
+          <h2 className="text-lg font-semibold mb-2">📝 Roteiro Gerado:</h2>
+          {roteiro}
+        </div>
+      )}
     </div>
   );
 }
