@@ -1,79 +1,62 @@
-import { useState } from 'react';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-export async function getServerSideProps(ctx) {
-  const supabase = createServerComponentClient({ cookies: () => ctx.req.headers.cookie });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
-  }
-
-  return {
-    props: {
-      user: session.user,
-    },
-  };
-}
-
-export default function Gerar({ user }) {
+export default function Gerar() {
   const [tema, setTema] = useState('');
   const [roteiro, setRoteiro] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const router = useRouter();
+  const supabase = createClientComponentClient();
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) router.push('/login');
+    };
+    checkLogin();
+
+    if (router.query.tema) setTema(router.query.tema);
+  }, [router]);
 
   const gerarRoteiro = async () => {
-    if (tema.length < 3) return alert('Tema muito curto.');
+    if (!tema.trim()) return;
     setCarregando(true);
-
     try {
       const res = await fetch('/api/gerar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tema }),
       });
-
       const data = await res.json();
-      setRoteiro(data.roteiro || 'Falha ao gerar roteiro');
-    } catch (err) {
-      console.error('Erro:', err);
-      setRoteiro('Erro ao gerar roteiro');
+      if (res.ok) setRoteiro(data.roteiro);
+      else alert('Erro: ' + data.erro);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCarregando(false);
     }
-
-    setCarregando(false);
   };
 
   return (
-    <div className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">🎬 Gerador de Roteiros</h1>
+    <div className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">🎬 Gerador de Roteiros com IA</h1>
       <input
         type="text"
+        placeholder="Digite um tema..."
         value={tema}
         onChange={(e) => setTema(e.target.value)}
-        placeholder="Digite um tema..."
-        className="w-full p-2 border rounded mb-4"
+        className="w-full px-4 py-2 border rounded mb-4"
       />
       <button
         onClick={gerarRoteiro}
         disabled={carregando}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+        className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
       >
-        {carregando ? 'Gerando...' : 'Gerar Roteiro'}
+        {carregando ? 'Gerando...' : '🚀 Gerar Roteiro com IA'}
       </button>
 
       {roteiro && (
-        <div className="mt-6 bg-gray-100 p-4 rounded whitespace-pre-wrap">
-          <h2 className="text-lg font-semibold mb-2">📝 Roteiro Gerado:</h2>
-          {roteiro}
-        </div>
-      )}
-    </div>
-  );
-}
+        <div className="mt-6 bg-gray-100 p-4 rounded">
+          <h2 className="text-xl font-semibold mb-2">🧠 Roteiro Gerado</h2>
+          <p className="whitespace-pre-line">{rotei
