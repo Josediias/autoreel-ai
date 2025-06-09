@@ -59,4 +59,9 @@ export default function Gerar() {
       {roteiro && (
         <div className="mt-6 bg-gray-100 p-4 rounded">
           <h2 className="text-xl font-semibold mb-2">🧠 Roteiro Gerado</h2>
-          <p className="whitespace-pre-line">{rotei
+          <p className="whitespace-pre-line">{roteiro}</p>
+        </div>
+      )}
+    </div>
+  );
+}
