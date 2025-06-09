@@ -1,64 +1,77 @@
-// pages/historico.js
+'use client';
+
 import { useEffect, useState } from 'react';
-import { useSession } from '@supabase/auth-helpers-react';
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/router';
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 
 export default function Historico() {
-  const session = useSession();
-  const router = useRouter();
   const [supabase, setSupabase] = useState(null);
   const [roteiros, setRoteiros] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    const supabaseClient = createPagesBrowserClient(); // Só roda no cliente
+    const supabaseClient = createPagesBrowserClient();
     setSupabase(supabaseClient);
+
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.push('/login');
+      } else {
+        fetchRoteiros(supabaseClient);
+      }
+    });
   }, []);
 
-  useEffect(() => {
-    if (!session) return;
-    if (!supabase) return;
+  const fetchRoteiros = async (supabaseClient) => {
+    const { data, error } = await supabaseClient
+      .from('roteiros')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    const fetchRoteiros = async () => {
-      const { data, error } = await supabase
-        .from('roteiros')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
+    if (!error) {
+      setRoteiros(data);
+    }
+    setLoading(false);
+  };
 
-      if (!error) setRoteiros(data || []);
-    };
-
-    fetchRoteiros();
-  }, [supabase, session]);
-
-  const handleExcluir = async (id) => {
-    if (!supabase || !confirm('Deseja excluir este roteiro?')) return;
-
+  const excluirRoteiro = async (id) => {
+    if (!confirm('Tem certeza que deseja excluir este roteiro?')) return;
     await supabase.from('roteiros').delete().eq('id', id);
     setRoteiros((prev) => prev.filter((r) => r.id !== id));
   };
 
-  if (!session) {
-    router.push('/login');
-    return null;
-  }
+  if (loading) return <p className="p-4">Carregando...</p>;
 
   return (
-    <div className="p-4">
+    <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">📜 Histórico de Roteiros</h1>
-      {roteiros.map((r) => (
-        <div key={r.id} className="border rounded-lg p-3 mb-2 shadow">
-          <p className="text-sm text-gray-500">{new Date(r.created_at).toLocaleString()}</p>
-          <p className="mt-2">{r.roteiro}</p>
-          <button
-            onClick={() => handleExcluir(r.id)}
-            className="mt-2 text-red-500 hover:underline text-sm"
-          >
-            🗑️ Excluir
-          </button>
-        </div>
-      ))}
+      {roteiros.length === 0 ? (
+        <p>Nenhum roteiro encontrado.</p>
+      ) : (
+        <ul className="space-y-4">
+          {roteiros.map((roteiro) => (
+            <li key={roteiro.id} className="border p-4 rounded-xl shadow">
+              <p><strong>Tema:</strong> {roteiro.tema}</p>
+              <p><strong>Roteiro:</strong> {roteiro.roteiro}</p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition"
+                  onClick={() => router.push(`/gerar?tema=${encodeURIComponent(roteiro.tema)}`)}
+                >
+                  🔄 Reutilizar
+                </button>
+                <button
+                  className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
+                  onClick={() => excluirRoteiro(roteiro.id)}
+                >
+                  🗑️ Excluir
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
